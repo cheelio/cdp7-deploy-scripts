@@ -1,0 +1,77 @@
+yum --nogpgcheck -y install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+yum --nogpgcheck -y install curl wget dmidecode postgresql10-server postgresql10 java-1.8.0-openjdk-devel mlocate telnet at jq rng-tools vim nc python3-pip.noarch install cloudera-manager-daemons cloudera-manager-server cloudera-manager-agent
+ln -sf /usr/share/zoneinfo/{{ general.localTZ }} /etc/localtime
+setenforce 0 > /dev/null 2> /dev/null
+sed -i 's/enforcing/disabled/' /etc/sysconfig/selinux
+echo never > /sys/kernel/mm/transparent_hugepage/defrag
+echo never > /sys/kernel/mm/transparent_hugepage/enabled
+wget -O - https://jdbc.postgresql.org/download/postgresql-42.2.9.jar > /usr/lib/postgresql-jdbc.jar
+/usr/pgsql-10/bin/postgresql-10-setup initdb
+sed -e 's,#listen_addresses = \x27localhost\x27,listen_addresses = \x27*\x27,g' -i /var/lib/pgsql/10/data/postgresql.conf
+sed -e 's,max_connections = 100,max_connections = 300,g' -i  /var/lib/pgsql/10/data/postgresql.conf
+mv /var/lib/pgsql/10/data/pg_hba.conf /var/lib/pgsql/10/data/pg_hba.conf.backup
+cat > /var/lib/pgsql/10/data/pg_hba.conf << EOF
+  # TYPE  DATABASE        USER            ADDRESS                 METHOD
+  local   all             all                                     peer
+  host    scm             scm             0.0.0.0/0               md5
+  host    das             das             0.0.0.0/0               md5
+  host    hive            hive            0.0.0.0/0               md5
+  host    hue             hue             0.0.0.0/0               md5
+  host    oozie           oozie           0.0.0.0/0               md5
+  host    ranger          rangeradmin     0.0.0.0/0               md5
+  host    rman            rman            0.0.0.0/0               md5
+  host    streamsmsgmgr   streamsmsgmgr   0.0.0.0/0               md5
+  host    registry        registry        0.0.0.0/0               md5
+  host    activitymonitor activitymonitor 0.0.0.0/0               md5
+  host    schemaregistry  schemaregistry  0.0.0.0/0               md5
+EOF
+chown postgres:postgres /var/lib/pgsql/10/data/pg_hba.conf;
+chmod 600 /var/lib/pgsql/10/data/pg_hba.conf
+systemctl enable postgresql-10.service
+systemctl start postgresql-10.service
+cat > /tmp/create_ddl_cdp.sql << EOF
+CREATE ROLE activitymonitor LOGIN PASSWORD '{{ general.password}}';
+CREATE ROLE das LOGIN PASSWORD '{{ general.password}}';
+CREATE ROLE hive LOGIN PASSWORD '{{ general.password}}';
+CREATE ROLE hue LOGIN PASSWORD '{{ general.password}}';
+CREATE ROLE oozie LOGIN PASSWORD '{{ general.password}}';
+CREATE ROLE rangeradmin LOGIN PASSWORD '{{ general.password}}';
+CREATE ROLE rman LOGIN PASSWORD '{{ general.password}}';
+CREATE ROLE scm LOGIN PASSWORD '{{ general.password}}';
+CREATE ROLE streamsmsgmgr LOGIN PASSWORD '{{ general.password}}';
+CREATE ROLE registry LOGIN PASSWORD '{{ general.password}}';
+CREATE ROLE schemaregistry LOGIN PASSWORD '{{ general.password}}';
+CREATE DATABASE activitymonitor OWNER activitymonitor ENCODING 'UTF-8';
+CREATE DATABASE das OWNER das ENCODING 'UTF-8';
+CREATE DATABASE hive OWNER hive ENCODING 'UTF-8';
+CREATE DATABASE hue OWNER hue ENCODING 'UTF-8';
+CREATE DATABASE oozie OWNER oozie ENCODING 'UTF-8';
+CREATE DATABASE ranger OWNER rangeradmin ENCODING 'UTF-8';
+CREATE DATABASE rman OWNER rman ENCODING 'UTF-8';
+CREATE DATABASE scm OWNER scm ENCODING 'UTF-8';
+CREATE DATABASE streamsmsgmgr OWNER scm ENCODING 'UTF-8';
+CREATE DATABASE registry OWNER scm ENCODING 'UTF-8';
+CREATE DATABASE schemaregistry OWNER schemaregistry ENCODING 'UTF-8';
+EOF
+
+su - postgres -c 'psql < /tmp/create_ddl_cdp.sql'
+systemctl enable atd
+systemctl start atd
+systemctl enable rngd
+systemctl start rngd
+/opt/cloudera/cm/schema/scm_prepare_database.sh postgresql scm scm {{ general.password }}
+systemctl enable cloudera-scm-agent
+systemctl start cloudera-scm-agent
+systemctl enable cloudera-scm-server
+systemctl start cloudera-scm-server
+RET=1
+ while [ $RET -eq 1 ]; do
+  echo -n .; sleep 2
+  echo "" | nc -v localhost 7180 > /dev/null 2> /dev/null
+  RET=$?
+done
+
+cat /opt/config-files/cluster_template_base.json > /tmp/cluster_template.json
+cd /opt/cloudera/parcels && python3 -m http.server 1024 &
+pip3 install cm_client
+python3 /opt/config-files/cm_install.py --hostname {{ cmNode.hostname }}{{ general.vmFqdnSuffix }} --dbpassword={{ general.password}} --cdponly 0 --localrepo /opt/cm-repo --parcelsuri http://{{ cmNode.hostname }}:1024/

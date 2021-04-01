@@ -1,0 +1,53 @@
+#cloud-config
+hostname: {{ hostname }}
+fqdn: {{ hostname }}{{ general.vmFqdnSuffix }}
+manage_etc_hosts: false
+users:
+  - name: {{ general.username }}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, admin
+    home: /home/{{ general.username }}
+    shell: /bin/bash
+    lock_passwd: false
+    ssh-authorized-keys:
+      - {{ general.publicKey }}
+# only cert auth via ssh (console access can still login)
+ssh_pwauth: true
+disable_root: false
+chpasswd:
+  list: |
+    {{ general.username }}:{{ general.password }}
+  expire: False
+yum_repos:
+  cloudera:
+    baseurl: file:///opt/cm-repo/cm7.1.4/
+    enabled: true
+    failovermethod: priority
+    gpgcheck: false
+    name: Cloudera Repository
+repo_update: true
+output: {all: '| tee -a /var/log/cloud-init-output.log'}
+runcmd:
+  - [ yum, install, -y, qemu-guest-agent, openjdk8, nano ]
+  - [ yum, install, -y, cloudera-manager-agent ]
+  - [ systemctl, start, cloudera-scm-agent]
+mounts:
+  - [ vdb, /opt/cm-repo ]
+final_message: "The system is finally up"
+write_files:
+  - path: /etc/hosts
+    permissions: '0644'
+    content: |
+      #Host file
+      127.0.0.1 localhost localhost.localdomain
+      127.0.1.1 {{ hostname }}
+      # The following lines are desirable for IPv6 capable hosts
+      ::1       ip6-localhost ip6-loopback
+      fe00::0   ip6-localnet
+      ff00::0   ip6-mcastprefix
+      ff02::1   ip6-allnodes
+      ff02::2   ip6-allrouters
+
+      {{ cmNode.ip }}   {{ cmNode.hostname }}{{ general.vmFqdnSuffix }}
+      {% for item in dataNodes %}{{ item.ip }}  {{ item.hostname }}{{ general.vmFqdnSuffix }}
+      {% endfor %}

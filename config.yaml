@@ -1,0 +1,34 @@
+general:
+  publicKey: PUBLIC_KEY_PLACEHOLDER
+  username: cloudera
+  password: cloudera
+  networkName: cdh
+  vmFqdnSuffix: .cdh7.local
+  diskImage: CentOS-7-x86_64-GenericCloud.qcow2
+  cmVersion: 7.1.4
+  cmFullVersion: 7.1.4-6363010
+  cdhVersion: 7.1.4-1
+  cdhParcelVersion: 7.1.4.0
+  cdhParcelFullVersion: 7.1.4-1.cdh7.1.4.p0.6300266
+  diskImageUrlPrefix: http://cloud.centos.org/centos/7/images/
+  parcelRepo: http://archive.cloudera.com/cdh7/7.1.4.0/parcels/
+  cmYumRepo: http://archive.cloudera.com/cm7/7.1.4/redhat7/yum/
+  localTZ: "Europe/London"
+  cdpOnly: true
+  localRepo: true
+
+cmNode:
+  mac: 52:54:00:6c:3c:01
+  ip: 192.168.122.11
+  hostname: cdh7-mgmt-001
+
+#dataNodes:
+#  - mac: 52:54:00:6c:3c:02
+#    ip: 192.168.122.12
+#    hostname: cdh7-data-001
+#  - mac: 52:54:00:6c:3c:03
+#    ip: 192.168.122.13
+#    hostname: cdh7-data-002
+#  - mac: 52:54:00:6c:3c:04
+#    ip: 192.168.122.14
+#    hostname: cdh7-data-003

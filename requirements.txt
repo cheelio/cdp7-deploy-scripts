@@ -1,0 +1,6 @@
+Jinja2
+shyaml
+PyYAML~=5.3.1
+file-downloader
+libvirt-python
+cm-client

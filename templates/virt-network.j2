@@ -1,0 +1,15 @@
+<network>
+  <name>{{ general.networkName }}</name>
+  <uuid>7d120a21-bf8a-41d4-81bb-32317e8bcc70</uuid>
+  <forward mode='nat'/>
+  <bridge name='virbr1' stp='on' delay='0'/>
+  <mac address='52:54:00:c7:ff:16'/>
+  <ip address='192.168.122.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.122.100' end='192.168.122.254'/>
+      <host mac='{{ cmNode.mac }}' name='{{ cmNode.hostname }}' ip='{{ cmNode.ip }}'/>
+      {% for item in dataNodes %}<host mac='{{ item.mac }}' name='{{ item.hostname }}' ip='{{ item.ip }}'/>
+      {% endfor %}
+    </dhcp>
+  </ip>
+</network>
